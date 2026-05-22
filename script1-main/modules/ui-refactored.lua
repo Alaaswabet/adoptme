@@ -30,6 +30,11 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
     local DataChanged = Remotes.DataChanged
 
     local PetStateApi = Detection.Init(PetState)
+    -- Ensure UIWindow is initialized with Rayfield if it exports an Init() function
+    if UIWindow and type(UIWindow.Init) == "function" then
+        UIWindow = UIWindow.Init(Rayfield)
+    end
+
     local status = UIStatus.Init(PetStateApi)
 
     local selectedPetName = nil
