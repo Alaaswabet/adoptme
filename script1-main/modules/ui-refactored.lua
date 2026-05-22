@@ -93,7 +93,7 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
             cf = CFrame.new(-5979.0981445312, 4000.6198730469, -9018.005859375, 0, 0, -1, 0, 1, 0, 1, 0, 0),
         },
         drink = {
-            id = "f-24",
+            id = "f-7",
             partName = "UseBlock",
             cf = CFrame.new(-5979.0966796875, 4000.6198730469, -9021.0029296875, 0, 0, -1, 0, 1, 0, 1, 0, 0),
         },
@@ -103,7 +103,7 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
             cf = CFrame.new(-5960.5434570312, 4000.7026367188, -9008.4345703125, -1, 0, 0, 0, 1, 0, 0, 0, -1),
         },
         toilet = {
-            id = "f-6",
+            id = "f-26",
             partName = "Seat1",
             cf = CFrame.new(-5961.6484375, 4003.1552734375, -9012.5, 0, 0, 1, 0, 1, 0, -1, 0, 0),
         },
@@ -143,9 +143,16 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
     end
 
     local function refreshSelectedPetStatus()
-        status.refreshSelectedPetStatus(resolveSelectedPet())
+        local pet = resolveSelectedPet()
+        if status and type(status.refreshSelectedPetStatus) == "function" then
+            pcall(function()
+                status.refreshSelectedPetStatus(pet)
+            end)
+        end
         if ailmentsPanel and type(ailmentsPanel.refresh) == "function" then
-            pcall(ailmentsPanel.refresh)
+            pcall(function()
+                ailmentsPanel.refresh()
+            end)
         end
     end
 
