@@ -259,13 +259,14 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
         if not remote then
             return false, "remote missing"
         end
+        local args = {...}
         if remote:IsA("RemoteFunction") then
             return pcall(function()
-                return remote:InvokeServer(...)
+                return remote:InvokeServer(unpack(args))
             end)
         elseif remote:IsA("RemoteEvent") then
             return pcall(function()
-                remote:FireServer(...)
+                remote:FireServer(unpack(args))
             end)
         end
         return false, "unsupported remote type"
