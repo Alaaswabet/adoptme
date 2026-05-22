@@ -144,7 +144,9 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
 
     local function refreshSelectedPetStatus()
         status.refreshSelectedPetStatus(resolveSelectedPet())
-        ailmentsPanel.refresh()
+        if ailmentsPanel and type(ailmentsPanel.refresh) == "function" then
+            pcall(ailmentsPanel.refresh)
+        end
     end
 
     local window = Rayfield:CreateWindow({
