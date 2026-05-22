@@ -29,13 +29,44 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
     local ActivateFurniture = Remotes.ActivateFurniture
     local DataChanged = Remotes.DataChanged
 
-    local PetStateApi = Detection.Init(PetState)
+    -- Defensive: ensure Detection and PetStates provide expected API
+    local PetStateApi
+    if Detection and type(Detection.Init) == "function" then
+        PetStateApi = Detection.Init(PetState)
+    else
+        PetStateApi = {
+            debugPetNeeds = function() end,
+            isHungry = function() return false end,
+            isThirsty = function() return false end,
+            isToilet = function() return false end,
+            isDirty = function() return false end,
+            isSleepy = function() return false end,
+            subscribe = function() end,
+            parseAilmentsManager = function() end,
+            findStateId = function() return nil end,
+            resolvePetId = function() return nil end,
+            getActive = function() return nil end,
+            hasNeed = function() return false end,
+        }
+    end
+
     -- Ensure UIWindow is initialized with Rayfield if it exports an Init() function
     if UIWindow and type(UIWindow.Init) == "function" then
         UIWindow = UIWindow.Init(Rayfield)
     end
 
-    local status = UIStatus.Init(PetStateApi)
+    -- Defensive: UIStatus may be nil; provide a no-op fallback
+    local status
+    if UIStatus and type(UIStatus.Init) == "function" then
+        status = UIStatus.Init(PetStateApi)
+    else
+        status = {
+            updateStatus = function() end,
+            getPetStatusText = function() return "Pet Status: unknown" end,
+            refreshSelectedPetStatus = function() end,
+            setStatusLabels = function() end,
+        }
+    end
 
     local selectedPetName = nil
     local petOptions = {}
@@ -123,13 +154,33 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
     })
     local tab = window:CreateTab("Controls", "gamepad-2")
     local needsTab = window:CreateTab("Pet Needs", "heart-pulse")
-    local StatusLabel = UIWindow.createLabel(tab, "Status: Ready")
-    local PetStatusLabel = UIWindow.createLabel(tab, "Pet Status: unknown")
+    local StatusLabel = tab:CreateLabel("Status: Ready")
+    local PetStatusLabel = tab:CreateLabel("Pet Status: unknown")
     status.setStatusLabels(StatusLabel, PetStatusLabel)
-    UIWindow.createSection(tab, "Pet Selection")
-    UIWindow.createSection(tab, "Actions")
+    tab:CreateSection("Pet Selection")
+    tab:CreateSection("Actions")
 
-    local ailmentsPanel = AilmentsPanel.Create(needsTab, PetStateApi, resolveSelectedPet)
+    local ailmentsPanel = nil
+    if AilmentsPanel and type(AilmentsPanel.Create) == "function" then
+        ailmentsPanel = AilmentsPanel.Create(needsTab, PetStateApi, resolveSelectedPet)
+    else
+        ailmentsPanel = { refresh = function() end }
+    end
+
+    -- Requirements tab (minimal): show scan status and allow scanning
+    local ReqTab = window:CreateTab("Requirements", 0)
+    ReqTab:CreateSection("Autofarm Setup")
+    local ReqSummaryLabel = ReqTab:CreateLabel("Status: not scanned")
+    local function refreshRequirements()
+        if type(Requirements) == "table" and type(Requirements.scan) == "function" then
+            pcall(function() Requirements.scan(Care, Sleep, Toys, player) end)
+            local summary, _ = Requirements.getSummaryText and Requirements.getSummaryText() or {"Status: scanned"}
+            ReqSummaryLabel:Set(summary)
+        else
+            ReqSummaryLabel:Set("Status: no Requirements module")
+        end
+    end
+    ReqTab:CreateButton({ Name = "Scan House", Callback = function() refreshRequirements() status.updateStatus("Requirements scanned") end })
 
     local runAutofarmOnce
 
