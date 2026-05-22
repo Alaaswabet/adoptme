@@ -446,56 +446,10 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
             end
         end
 
-        -- If the found target is part of HouseInteriors, prefer entering the house first
+        -- Do not teleport into HouseInteriors yet.
         if target and workspace:FindFirstChild("HouseInteriors") and target:IsDescendantOf(workspace.HouseInteriors) then
-            print("[ui] useFurniture: target inside HouseInteriors — entering house for", needType)
-            setStatus("TPing to house for " .. needType)
-            if not enterHouseViaDoor() then
-                print("[ui] enterHouseViaDoor failed")
-                return false
-            end
-            id, target = findFunc()
-            print("[ui] re-scan after entering house — found:", id, safeName(target))
-        end
-
-        -- If not found, attempt entering house and rescanning a few times
-        if not id or not target then
-            local found = false
-            for i = 1, 3 do
-                setStatus("TPing to house for " .. needType)
-                    print("[ui] useFurniture: attempt", i, "to enter house and rescan for", needType)
-                if not enterHouseViaDoor() then
-                    print("[ui] useFurniture: enterHouseViaDoor failed on attempt", i)
-                else
-                    id, target = findFunc()
-                    -- verify match again after re-scan
-                    if id and target then
-                        local text = getAncestorTextLocal(target)
-                        local keywords = NEED_KEYWORDS[needType]
-                        local okMatch = false
-                        if keywords then
-                            for _,kw in ipairs(keywords) do
-                                if text:find(kw, 1, true) then okMatch = true break end
-                            end
-                        else
-                            okMatch = true
-                        end
-                        if not okMatch then
-                            print("[ui] useFurniture: rescan target doesn't match needType, ignoring:", id, safeName(target))
-                            id, target = nil, nil
-                        end
-                    end
-                    print("[ui] useFurniture: rescan result:", id, safeName(target))
-                    if id and target then
-                        found = true
-                        break
-                    end
-                end
-                task.wait(1)
-            end
-            if not found then
-                return false
-            end
+            print("[ui] useFurniture: target inside HouseInteriors — skipping house teleport")
+            return false
         end
 
         if not id or not target then
