@@ -27,7 +27,22 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
     local HoldBaby = Remotes.HoldBaby
     local EjectBaby = Remotes.EjectBaby
     local ActivateFurniture = Remotes.ActivateFurniture
+    local UnsubscribeFromHouse = Remotes.UnsubscribeFromHouse
     local DataChanged = Remotes.DataChanged
+
+    local function callRemoteSafe(remote, ...)
+        if not remote then
+            return false, "remote missing"
+        end
+        local args = {...}
+        if remote:IsA("RemoteFunction") then
+            return pcall(function() return remote:InvokeServer(unpack(args)) end)
+        elseif remote:IsA("RemoteEvent") then
+            return pcall(function() remote:FireServer(unpack(args)) end)
+        else
+            return false, "unsupported remote type"
+        end
+    end
 
     -- Defensive: ensure Detection and PetStates provide expected API
     local PetStateApi
@@ -41,6 +56,7 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
             isToilet = function() return false end,
             isDirty = function() return false end,
             isSleepy = function() return false end,
+            isWalk = function() return false end,
             subscribe = function() end,
             parseAilmentsManager = function() end,
             findStateId = function() return nil end,
@@ -123,23 +139,230 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
         if not action then
             return false, "Unknown action " .. tostring(actionName)
         end
-        local function callRemoteSafe(remote, ...)
-            if not remote then return false, "remote missing" end
-            local args = {...}
-            if remote:IsA("RemoteFunction") then
-                return pcall(function() return remote:InvokeServer(unpack(args)) end)
-            elseif remote:IsA("RemoteEvent") then
-                return pcall(function() remote:FireServer(unpack(args)) end)
-            else
-                return false, "unsupported remote type"
-            end
-        end
 
         local ok, err = callRemoteSafe(ActivateFurniture, player, action.id, action.partName, {cframe = action.cf}, pet)
         if not ok then
             return false, err
         end
         return true
+    end
+
+    local function doWalk(pet)
+        if not pet or not pet:IsA("Model") then
+            return false, "No pet selected"
+        end
+        if not Toys or type(Toys.walkWithPet) ~= "function" then
+            return false, "Walk helper missing"
+        end
+        if not HoldBaby then
+            return false, "HoldBaby remote missing"
+        end
+        status.updateStatus("Walking pet")
+        local ok, err = pcall(function()
+            return Toys.walkWithPet(player, HoldBaby, pet, function()
+                return PetStateApi.isWalk and PetStateApi.isWalk(pet)
+            end)
+        end)
+        if not ok then
+            return false, err
+        end
+        return true
+    end
+
+    local function resolveTeleportPart(target)
+        if not target then
+            return nil
+        end
+        if target:IsA("BasePart") then
+            return target
+        end
+        if target:IsA("Model") then
+            if target.PrimaryPart then
+                return target.PrimaryPart
+            end
+            return target:FindFirstChildWhichIsA("BasePart", true)
+        end
+        return target:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    local function teleportToSafePart(target)
+        local part = resolveTeleportPart(target)
+        if not part then
+            return false
+        end
+
+        local platform = Instance.new("Part")
+        platform.Name = "PetControllerSafeBaseplate"
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 1
+        platform.Size = Vector3.new(8, 1, 8)
+        platform.CFrame = part.CFrame * CFrame.new(0, -3, 0)
+        platform.Parent = workspace
+
+        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = platform.CFrame * CFrame.new(0, 3, 0)
+        end
+
+        task.spawn(function()
+            task.wait(5)
+            if platform and platform.Parent then
+                platform:Destroy()
+            end
+        end)
+
+        return true
+    end
+
+    local function getTeleportTarget(name)
+        if name == "beach" then
+            local furniture = workspace:FindFirstChild("HouseInteriors")
+                and workspace.HouseInteriors:FindFirstChild("furniture")
+            local beachNode = furniture and furniture:FindFirstChild("nil/nil/MainMap!Default/false/f-28")
+            if not beachNode then
+                return nil
+            end
+            return beachNode:FindFirstChild("Beach2024Log", true) or beachNode
+        elseif name == "school" then
+            local t1 = workspace:FindFirstChild("Interiors")
+                and workspace.Interiors:FindFirstChild("School")
+                and workspace.Interiors.School:FindFirstChild("Doors")
+                and workspace.Interiors.School.Doors:FindFirstChild("MainDoor")
+                and workspace.Interiors.School.Doors.MainDoor:FindFirstChild("WorkingParts")
+                and workspace.Interiors.School.Doors.MainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+            if t1 then return t1 end
+
+            local t2 = workspace:FindFirstChild("Interiors")
+                and workspace.Interiors:FindFirstChild("MainMap!Default")
+                and workspace.Interiors["MainMap!Default"].Doors
+                and workspace.Interiors["MainMap!Default"].Doors:FindFirstChild("School/MainDoor")
+                and workspace.Interiors["MainMap!Default"].Doors["School/MainDoor"]:FindFirstChild("WorkingParts")
+                and workspace.Interiors["MainMap!Default"].Doors["School/MainDoor"].WorkingParts:FindFirstChild("TouchToEnter")
+            if t2 then return t2 end
+
+            return workspace:FindFirstChild("Interiors")
+                and workspace.Interiors:FindFirstChild("School")
+                and workspace.Interiors.School:FindFirstChild("Doors")
+                and workspace.Interiors.School.Doors:FindFirstChild("MainDoor")
+        elseif name == "camping" then
+            local furniture = workspace:FindFirstChild("HouseInteriors")
+                and workspace.HouseInteriors:FindFirstChild("furniture")
+            local campNode = furniture and furniture:FindFirstChild("nil/nil/MainMap!Default/false/f-5")
+            if not campNode then
+                return nil
+            end
+            return campNode:FindFirstChild("SleepingBag", true) or campNode
+        elseif name == "salon" then
+            return workspace:FindFirstChild("Interiors")
+                and workspace.Interiors:FindFirstChild("MainMap!Default")
+                and workspace.Interiors["MainMap!Default"].Doors
+                and workspace.Interiors["MainMap!Default"].Doors:FindFirstChild("Salon/MainDoor")
+                and workspace.Interiors["MainMap!Default"].Doors["Salon/MainDoor"]:FindFirstChild("WorkingParts")
+                and workspace.Interiors["MainMap!Default"].Doors["Salon/MainDoor"].WorkingParts:FindFirstChild("TouchToEnter")
+        elseif name == "playground" then
+            return workspace:FindFirstChild("StaticMap")
+                and workspace.StaticMap:FindFirstChild("Park")
+                and workspace.StaticMap.Park:FindFirstChild("Roundabout")
+                and workspace.StaticMap.Park.Roundabout:FindFirstChild("SeatsSpinModel")
+                and workspace.StaticMap.Park.SeatsSpinModel:FindFirstChild("Collisions")
+                and workspace.StaticMap.Park.Roundabout.SeatsSpinModel.Collisions:FindFirstChild("Collider")
+        end
+        return nil
+    end
+
+    local function exitHouseToMainArea()
+        if UnsubscribeFromHouse then
+            local ok, err = callRemoteSafe(UnsubscribeFromHouse, true)
+            if not ok then
+                warn("UnsubscribeFromHouse failed:", err)
+            end
+        end
+        task.wait(2)
+
+        local char = player.Character
+        if not char then return false end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
+
+        local targetCF = CFrame.new(2978.0874, 6534.81934, 12039.1875, 0.999999702, 0, 0.000776898232, 0, 1, 0, -0.000776898232, 0, 0.999999702)
+        char:PivotTo(targetCF)
+        task.wait(6)
+        return true
+    end
+
+    local function teleportToNamedTargetAsync(name)
+        status.updateStatus("Loading " .. name .. " furniture")
+        if not exitHouseToMainArea() then
+            status.updateStatus("Failed to exit house")
+            return
+        end
+
+        local target = getTeleportTarget(name)
+        if not target then
+            status.updateStatus("TP target not found: " .. name)
+            return
+        end
+
+        local tpPart = resolveTeleportPart(target)
+        if tpPart and tpPart.Name == "TouchToEnter" then
+            local RunService = game:GetService("RunService")
+            for attempt = 1, 3 do
+                status.updateStatus("Flying to " .. name .. " door")
+                local char = player.Character or player.CharacterAdded:Wait()
+                local hrp = char:WaitForChild("HumanoidRootPart")
+                local speed = 120
+                local stopDistance = 2
+                local conn
+                char:PivotTo(hrp.CFrame + Vector3.new(0, 10, 0))
+                task.wait(0.5)
+                conn = RunService.Heartbeat:Connect(function(dt)
+                    if not hrp or not hrp.Parent then
+                        conn:Disconnect()
+                        return
+                    end
+                    if not tpPart or not tpPart.Parent then
+                        conn:Disconnect()
+                        return
+                    end
+                    local direction = (tpPart.Position - hrp.Position)
+                    local distance = direction.Magnitude
+                    if distance <= stopDistance then
+                        conn:Disconnect()
+                        return
+                    end
+                    direction = direction.Unit
+                    hrp.CFrame = hrp.CFrame + direction * speed * dt
+                end)
+
+                local start = os.clock()
+                local success = false
+                while os.clock() - start < 15 do
+                    if not tpPart or not tpPart.Parent then
+                        success = true
+                        break
+                    end
+                    task.wait(0.5)
+                end
+                if conn then pcall(function() conn:Disconnect() end) end
+                if success then
+                    status.updateStatus("Arrived at " .. name .. " door")
+                    return
+                end
+                task.wait(1)
+                target = getTeleportTarget(name)
+                tpPart = resolveTeleportPart(target)
+            end
+            status.updateStatus("Failed to reach " .. name .. " door")
+            return
+        end
+
+        if teleportToSafePart(target) then
+            task.wait(1)
+            status.updateStatus("Teleported to " .. name)
+        else
+            status.updateStatus("Teleport failed: " .. name)
+        end
     end
 
     local function refreshSelectedPetStatus()

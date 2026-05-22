@@ -55,11 +55,31 @@ function AilmentsPanel.Create(tab, PetState, getSelectedPet)
             false
         )
 
+        local active = PetState.getActive(pet)
         for _, name in ipairs(ailmentsToTrack) do
-            setAilmentLabel(name, PetState.hasNeed(pet, name))
+            local isActive = false
+            if type(PetState.hasNeed) == "function" then
+                isActive = PetState.hasNeed(pet, name)
+            end
+            if not isActive then
+                if name == "hungry" and type(PetState.isHungry) == "function" then
+                    isActive = PetState.isHungry(pet)
+                elseif name == "thirsty" and type(PetState.isThirsty) == "function" then
+                    isActive = PetState.isThirsty(pet)
+                elseif name == "toilet" and type(PetState.isToilet) == "function" then
+                    isActive = PetState.isToilet(pet)
+                elseif name == "dirty" and type(PetState.isDirty) == "function" then
+                    isActive = PetState.isDirty(pet)
+                elseif name == "sleepy" and type(PetState.isSleepy) == "function" then
+                    isActive = PetState.isSleepy(pet)
+                end
+            end
+            if not isActive and active and active[tostring(name):lower()] then
+                isActive = true
+            end
+            setAilmentLabel(name, isActive)
         end
 
-        local active = PetState.getActive(pet)
         if active then
             local keys = {}
             for key in pairs(active) do
