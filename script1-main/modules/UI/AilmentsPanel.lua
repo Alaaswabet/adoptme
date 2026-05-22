@@ -28,6 +28,7 @@ function AilmentsPanel.Create(tab, PetState, getSelectedPet)
         if not label then
             return
         end
+
         if isActive then
             label:Set(name .. ": true", 0, COLOR_ON, false)
         else
@@ -37,55 +38,45 @@ function AilmentsPanel.Create(tab, PetState, getSelectedPet)
 
     local function refresh()
         local pet = getSelectedPet()
+
         if not pet then
             PetIdLabel:Set("Pet ID: no pet selected", 0, COLOR_MUTED, false)
+
             for _, name in ipairs(ailmentsToTrack) do
                 setAilmentLabel(name, false)
             end
+
             RawKeysLabel:Set("Raw keys: —", 0, COLOR_MUTED, false)
             return
         end
 
         local stateId = PetState.findStateId(pet)
         local resolveId = PetState.resolvePetId(pet)
+
         PetIdLabel:Set(
-            "Pet ID: " .. (stateId or resolveId or "?") .. (stateId and stateId ~= resolveId and (" (attr: " .. resolveId .. ")") or ""),
+            "Pet ID: " .. (stateId or resolveId or "?") ..
+            (stateId and stateId ~= resolveId and (" (attr: " .. resolveId .. ")") or ""),
             0,
             COLOR_MUTED,
             false
         )
 
         local active = PetState.getActive(pet)
+
         for _, name in ipairs(ailmentsToTrack) do
-            local isActive = false
-            if type(PetState.hasNeed) == "function" then
-                isActive = PetState.hasNeed(pet, name)
-            end
-            if not isActive then
-                if name == "hungry" and type(PetState.isHungry) == "function" then
-                    isActive = PetState.isHungry(pet)
-                elseif name == "thirsty" and type(PetState.isThirsty) == "function" then
-                    isActive = PetState.isThirsty(pet)
-                elseif name == "toilet" and type(PetState.isToilet) == "function" then
-                    isActive = PetState.isToilet(pet)
-                elseif name == "dirty" and type(PetState.isDirty) == "function" then
-                    isActive = PetState.isDirty(pet)
-                elseif name == "sleepy" and type(PetState.isSleepy) == "function" then
-                    isActive = PetState.isSleepy(pet)
-                end
-            end
-            if not isActive and active and active[tostring(name):lower()] then
-                isActive = true
-            end
+            local isActive = PetState.hasNeed(pet, name)
             setAilmentLabel(name, isActive)
         end
 
         if active then
             local keys = {}
+
             for key in pairs(active) do
                 table.insert(keys, key)
             end
+
             table.sort(keys)
+
             RawKeysLabel:Set(
                 #keys > 0 and ("Raw keys: " .. table.concat(keys, ", ")) or "Raw keys: (none)",
                 0,
@@ -93,9 +84,21 @@ function AilmentsPanel.Create(tab, PetState, getSelectedPet)
                 false
             )
         else
-            RawKeysLabel:Set("Raw keys: no ailments_manager data for this pet", 0, COLOR_MUTED, false)
+            RawKeysLabel:Set(
+                "Raw keys: no ailments_manager data for this pet",
+                0,
+                COLOR_MUTED,
+                false
+            )
         end
     end
+
+    task.spawn(function()
+        while true do
+            pcall(refresh)
+            task.wait(0.5)
+        end
+    end)
 
     return {
         refresh = refresh,
