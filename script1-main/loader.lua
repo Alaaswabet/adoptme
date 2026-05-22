@@ -48,9 +48,9 @@ local Requirements = loadModule({"requirements"})
 -- Try flat path first, then Core/ subfolder
 local PetStatesModule = loadModule({"PetStates", "Core/PetStates"})
 
-local UI = loadModule({"ui", "UI/ui"})
+local UI = loadModule({"ui-refactored", "ui", "UI/ui"})
 if not UI then
-    warn("FAILED to load ui.lua — push modules/ui.lua to GitHub (no require() in file!)")
+    warn("FAILED to load ui-refactored.lua / ui.lua — push modules/ui-refactored.lua or modules/ui.lua to GitHub (no require() in file!)")
 end
 
 local PetState = nil

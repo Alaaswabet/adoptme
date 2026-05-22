@@ -189,6 +189,7 @@ function FurnitureHub.use(needType, player, pet, ActivateFurniture)
     local cf = station.activatePart.CFrame
     return pcall(function()
         ActivateFurniture:InvokeServer(
+            player,
             station.id,
             station.partName,
             {cframe = cf},
