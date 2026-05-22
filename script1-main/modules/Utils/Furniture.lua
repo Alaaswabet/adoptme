@@ -30,15 +30,19 @@ function Furniture.Init(player, ActivateFurniture, Helpers)
         print("DEBUG ACTION", actionLabel, "furnitureId=", furnitureId, "pet=", pet.Name)
         teleportToTarget(targetCFrame)
 
-        local ok, err = pcall(function()
-            ActivateFurniture:InvokeServer(
-                player,
-                furnitureId,
-                partName,
-                {cframe = targetCFrame},
-                pet
-            )
-        end)
+        local function callRemoteSafe(remote, ...)
+            if not remote then return false, "remote missing" end
+            local args = {...}
+            if remote:IsA("RemoteFunction") then
+                return pcall(function() return remote:InvokeServer(unpack(args)) end)
+            elseif remote:IsA("RemoteEvent") then
+                return pcall(function() remote:FireServer(unpack(args)) end)
+            else
+                return false, "unsupported remote type"
+            end
+        end
+
+        local ok, err = callRemoteSafe(ActivateFurniture, player, furnitureId, partName, {cframe = targetCFrame}, pet)
 
         if not ok then
             return false, err

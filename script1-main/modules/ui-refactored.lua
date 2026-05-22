@@ -123,15 +123,19 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detec
         if not action then
             return false, "Unknown action " .. tostring(actionName)
         end
-        local ok, err = pcall(function()
-            ActivateFurniture:InvokeServer(
-                player,
-                action.id,
-                action.partName,
-                {cframe = action.cf},
-                pet
-            )
-        end)
+        local function callRemoteSafe(remote, ...)
+            if not remote then return false, "remote missing" end
+            local args = {...}
+            if remote:IsA("RemoteFunction") then
+                return pcall(function() return remote:InvokeServer(unpack(args)) end)
+            elseif remote:IsA("RemoteEvent") then
+                return pcall(function() remote:FireServer(unpack(args)) end)
+            else
+                return false, "unsupported remote type"
+            end
+        end
+
+        local ok, err = callRemoteSafe(ActivateFurniture, player, action.id, action.partName, {cframe = action.cf}, pet)
         if not ok then
             return false, err
         end

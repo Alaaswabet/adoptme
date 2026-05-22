@@ -187,15 +187,19 @@ function FurnitureHub.use(needType, player, pet, ActivateFurniture)
     end
 
     local cf = station.activatePart.CFrame
-    return pcall(function()
-        ActivateFurniture:InvokeServer(
-            player,
-            station.id,
-            station.partName,
-            {cframe = cf},
-            pet
-        )
-    end)
+    local function callRemoteSafe(remote, ...)
+        if not remote then return false, "remote missing" end
+        local args = {...}
+        if remote:IsA("RemoteFunction") then
+            return pcall(function() return remote:InvokeServer(unpack(args)) end)
+        elseif remote:IsA("RemoteEvent") then
+            return pcall(function() remote:FireServer(unpack(args)) end)
+        else
+            return false, "unsupported remote type"
+        end
+    end
+
+    return callRemoteSafe(ActivateFurniture, player, station.id, station.partName, {cframe = cf}, pet)
 end
 
 return FurnitureHub
