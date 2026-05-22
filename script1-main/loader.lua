@@ -7,7 +7,7 @@
 ]]
 
 -- ▼▼▼ YOUR GITHUB RAW MODULES FOLDER ▼▼▼
-local BASE = "https://raw.githubusercontent.com/Asarja2/script1/main/modules/"
+local BASE = "https://raw.githubusercontent.com/Alaaswabet/adoptme/refs/heads/main/script1-main/modules/"
 -- If 404 errors, try: .../script1-main/modules/  (depends on repo folder name)
 
 local function loadModule(paths)

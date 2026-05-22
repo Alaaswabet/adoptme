@@ -255,6 +255,22 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
         return bp and bp.CFrame
     end
 
+    local function callRemote(remote, ...)
+        if not remote then
+            return false, "remote missing"
+        end
+        if remote:IsA("RemoteFunction") then
+            return pcall(function()
+                return remote:InvokeServer(...)
+            end)
+        elseif remote:IsA("RemoteEvent") then
+            return pcall(function()
+                remote:FireServer(...)
+            end)
+        end
+        return false, "unsupported remote type"
+    end
+
     local function enterHouseViaDoor()
         print("[ui] enterHouseViaDoor: attempting house exit + entry")
 
@@ -490,9 +506,7 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
             return false
         end
 
-        return pcall(function()
-            ActivateFurniture:InvokeServer(player, id, partName, {cframe = cf}, pet)
-        end)
+        return callRemote(ActivateFurniture, id, partName, {cframe = cf}, pet)
     end
 
     local ToyIdLabel = nil
@@ -988,9 +1002,10 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
     local function exitHouseToMainArea()
         -- Unsubscribe from house to load special areas
         if UnsubscribeFromHouse then
-            pcall(function()
-                UnsubscribeFromHouse:InvokeServer(player, true)
-            end)
+            local ok, err = callRemote(UnsubscribeFromHouse, true)
+            if not ok then
+                warn("[ui] UnsubscribeFromHouse failed:", err)
+            end
         end
         task.wait(2)
 
@@ -1315,9 +1330,10 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
         Callback = function()
             local p = getPet()
             if p then
-                pcall(function()
-                    HoldBaby:FireServer(p)
-                end)
+                local ok, err = callRemote(HoldBaby, p)
+                if not ok then
+                    warn("[ui] HoldBaby failed:", err)
+                end
             end
         end,
     })
@@ -1326,9 +1342,10 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
         Callback = function()
             local p = getPet()
             if p then
-                pcall(function()
-                    EjectBaby:FireServer(p)
-                end)
+                local ok, err = callRemote(EjectBaby, p)
+                if not ok then
+                    warn("[ui] EjectBaby failed:", err)
+                end
             end
         end,
     })

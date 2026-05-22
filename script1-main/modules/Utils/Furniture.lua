@@ -32,7 +32,6 @@ function Furniture.Init(player, ActivateFurniture, Helpers)
 
         local ok, err = pcall(function()
             ActivateFurniture:InvokeServer(
-                player,
                 furnitureId,
                 partName,
                 {cframe = targetCFrame},
