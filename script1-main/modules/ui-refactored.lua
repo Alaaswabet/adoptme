@@ -5,7 +5,6 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Detection = require(script.Parent:FindFirstChild("Core"):FindFirstChild("Detection"))
 local PetStates = require(script.Parent:FindFirstChild("Core"):FindFirstChild("PetStates"))
 local Helpers = require(script.Parent:FindFirstChild("Utils"):FindFirstChild("Helpers"))
-local Furniture = require(script.Parent:FindFirstChild("Utils"):FindFirstChild("Furniture"))
 local UIWindow = require(script.Parent:FindFirstChild("UI"):FindFirstChild("Window"))
 local UIStatus = require(script.Parent:FindFirstChild("UI"):FindFirstChild("Status"))
 local AilmentsPanel = require(script.Parent:FindFirstChild("UI"):FindFirstChild("AilmentsPanel"))
@@ -22,7 +21,6 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState)
     local DataChanged = Remotes.DataChanged
 
     local PetStateApi = Detection.Init(PetState)
-    local furniture = Furniture.Init(player, ActivateFurniture, Helpers)
     local status = UIStatus.Init(PetStateApi)
 
     local selectedPetName = nil
@@ -43,9 +41,56 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState)
         return nil
     end
 
-    local function activateForPet(furnitureId, target, partName, label, pet)
+    local ACTION_REMOTE = {
+        food = {
+            id = "f-32",
+            partName = "UseBlock",
+            cf = CFrame.new(-5979.0981445312, 4000.6198730469, -9018.005859375, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+        },
+        drink = {
+            id = "f-24",
+            partName = "UseBlock",
+            cf = CFrame.new(-5979.0966796875, 4000.6198730469, -9021.0029296875, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+        },
+        shower = {
+            id = "f-16",
+            partName = "UseBlock",
+            cf = CFrame.new(-5960.5434570312, 4000.7026367188, -9008.4345703125, -1, 0, 0, 0, 1, 0, 0, 0, -1),
+        },
+        toilet = {
+            id = "f-6",
+            partName = "Seat1",
+            cf = CFrame.new(-5961.6484375, 4003.1552734375, -9012.5, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+        },
+        bed = {
+            id = "f-26",
+            partName = "Seat1",
+            cf = CFrame.new(-5987.7016601562, 4002.6306152344, -9029.9853515625, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+        },
+    }
+
+    local function activateHardcodedAction(actionName, pet)
         pet = pet or resolveSelectedPet()
-        return furniture.performFurnitureActivation(furnitureId, target, partName, label, pet)
+        if not pet or not pet:IsA("Model") then
+            return false, "No pet selected"
+        end
+        local action = ACTION_REMOTE[actionName]
+        if not action then
+            return false, "Unknown action " .. tostring(actionName)
+        end
+        local ok, err = pcall(function()
+            ActivateFurniture:InvokeServer(
+                player,
+                action.id,
+                action.partName,
+                {cframe = action.cf},
+                pet
+            )
+        end)
+        if not ok then
+            return false, err
+        end
+        return true
     end
 
     local function refreshSelectedPetStatus()
@@ -85,28 +130,23 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState)
 
         if PetStateApi.isHungry(pet) then
             status.updateStatus("Pet is hungry...")
-            local furnitureId, obj = Care.FindFood()
-            return activateForPet(furnitureId, obj, "UseBlock", "food", pet)
+            return activateHardcodedAction("food", pet)
         end
         if PetStateApi.isThirsty(pet) then
             status.updateStatus("Pet is thirsty...")
-            local furnitureId, obj = Care.FindDrink()
-            return activateForPet(furnitureId, obj, "UseBlock", "drink", pet)
+            return activateHardcodedAction("drink", pet)
         end
         if PetStateApi.isToilet(pet) then
             status.updateStatus("Pet needs toilet...")
-            local furnitureId, seat = Care.FindToilet()
-            return activateForPet(furnitureId, seat, "Seat1", "toilet", pet)
+            return activateHardcodedAction("toilet", pet)
         end
         if PetStateApi.isDirty(pet) then
             status.updateStatus("Pet is dirty...")
-            local furnitureId, obj = Care.FindShower()
-            return activateForPet(furnitureId, obj, "UseBlock", "shower", pet)
+            return activateHardcodedAction("shower", pet)
         end
         if PetStateApi.isSleepy(pet) then
             status.updateStatus("Pet is sleepy...")
-            local furnitureId, seat = Sleep.FindBed()
-            return activateForPet(furnitureId, seat, "Seat1", "bed", pet)
+            return activateHardcodedAction("bed", pet)
         end
 
         status.updateStatus("Pet doesn't need anything")
@@ -255,46 +295,36 @@ function UI.Init(Pets, Sleep, Care, Remotes, PetState)
     tab:CreateButton({Name = "🛏️ Put Pet To Sleep", Callback = function()
         local pet = resolveSelectedPet()
         if not pet then status.updateStatus("No pet selected") return end
-        local furnitureId, seat = Sleep.FindBed()
-        if not furnitureId or not seat then status.updateStatus("No bed found") return end
-        local ok = activateForPet(furnitureId, seat, "Seat1", "bed", pet)
-        status.updateStatus(ok and (pet.Name .. " is sleeping") or "Sleep failed")
+        local ok, err = activateHardcodedAction("bed", pet)
+        status.updateStatus(ok and (pet.Name .. " is sleeping") or ("Sleep failed: " .. tostring(err)))
     end})
 
     tab:CreateButton({Name = "🍎 Feed Pet", Callback = function()
         local pet = resolveSelectedPet()
         if not pet then status.updateStatus("No pet selected") return end
-        local furnitureId, obj = Care.FindFood()
-        if not furnitureId or not obj then status.updateStatus("No food found") return end
-        local ok = activateForPet(furnitureId, obj, "UseBlock", "food", pet)
-        status.updateStatus(ok and (pet.Name .. " is eating") or "Feed failed")
+        local ok, err = activateHardcodedAction("food", pet)
+        status.updateStatus(ok and (pet.Name .. " is eating") or ("Feed failed: " .. tostring(err)))
     end})
 
     tab:CreateButton({Name = "🥤 Give Pet Drink", Callback = function()
         local pet = resolveSelectedPet()
         if not pet then status.updateStatus("No pet selected") return end
-        local furnitureId, obj = Care.FindDrink()
-        if not furnitureId or not obj then status.updateStatus("No drink found") return end
-        local ok = activateForPet(furnitureId, obj, "UseBlock", "drink", pet)
-        status.updateStatus(ok and (pet.Name .. " is drinking") or "Drink failed")
+        local ok, err = activateHardcodedAction("drink", pet)
+        status.updateStatus(ok and (pet.Name .. " is drinking") or ("Drink failed: " .. tostring(err)))
     end})
 
     tab:CreateButton({Name = "🚿 Shower Pet", Callback = function()
         local pet = resolveSelectedPet()
         if not pet then status.updateStatus("No pet selected") return end
-        local furnitureId, obj = Care.FindShower()
-        if not furnitureId or not obj then status.updateStatus("No shower found") return end
-        local ok = activateForPet(furnitureId, obj, "UseBlock", "shower", pet)
-        status.updateStatus(ok and (pet.Name .. " is showering") or "Shower failed")
+        local ok, err = activateHardcodedAction("shower", pet)
+        status.updateStatus(ok and (pet.Name .. " is showering") or ("Shower failed: " .. tostring(err)))
     end})
 
     tab:CreateButton({Name = "🚽 Toilet", Callback = function()
         local pet = resolveSelectedPet()
         if not pet then status.updateStatus("No pet selected") return end
-        local furnitureId, seat = Care.FindToilet()
-        if not furnitureId or not seat then status.updateStatus("No toilet found") return end
-        local ok = activateForPet(furnitureId, seat, "Seat1", "toilet", pet)
-        status.updateStatus(ok and (pet.Name .. " is using toilet") or "Toilet failed")
+        local ok, err = activateHardcodedAction("toilet", pet)
+        status.updateStatus(ok and (pet.Name .. " is using toilet") or ("Toilet failed: " .. tostring(err)))
     end})
 
     tab:CreateToggle({
