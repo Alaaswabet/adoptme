@@ -48,6 +48,13 @@ local Requirements = loadModule({"requirements"})
 -- Try flat path first, then Core/ subfolder
 local PetStatesModule = loadModule({"PetStates", "Core/PetStates"})
 
+-- load auxiliary UI and utils modules to inject into ui-refactored
+local Detection = loadModule({"Core/Detection", "Core/Detection"})
+local Helpers = loadModule({"Utils/Helpers", "Utils/Helpers"})
+local UIWindow = loadModule({"UI/Window", "UI/Window"})
+local UIStatus = loadModule({"UI/Status", "UI/Status"})
+local AilmentsPanel = loadModule({"UI/AilmentsPanel", "UI/AilmentsPanel"})
+
 local UI = loadModule({"ui-refactored", "ui", "UI/ui"})
 if not UI then
     warn("FAILED to load ui-refactored.lua / ui.lua — push modules/ui-refactored.lua or modules/ui.lua to GitHub (no require() in file!)")
@@ -68,7 +75,7 @@ end
 
 if type(UI) == "table" and type(UI.Init) == "function" then
     local ok, err = pcall(function()
-        UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements)
+        UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, Detection, PetStatesModule, Helpers, UIWindow, UIStatus, AilmentsPanel)
     end)
     if ok then
         print("UI.Init OK")

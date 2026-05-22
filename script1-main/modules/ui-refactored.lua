@@ -2,17 +2,26 @@
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
-local Detection = require(script.Parent:FindFirstChild("Core"):FindFirstChild("Detection"))
-local PetStates = require(script.Parent:FindFirstChild("Core"):FindFirstChild("PetStates"))
-local Helpers = require(script.Parent:FindFirstChild("Utils"):FindFirstChild("Helpers"))
-local UIWindow = require(script.Parent:FindFirstChild("UI"):FindFirstChild("Window"))
-local UIStatus = require(script.Parent:FindFirstChild("UI"):FindFirstChild("Status"))
-local AilmentsPanel = require(script.Parent:FindFirstChild("UI"):FindFirstChild("AilmentsPanel"))
+-- Dependencies injected by the loader (loaded via loader.lua)
+local Detection
+local PetStates
+local Helpers
+local UIWindow
+local UIStatus
+local AilmentsPanel
 
 local UI = {}
 
-function UI.Init(Pets, Sleep, Care, Remotes, PetState)
-    PetState = PetState or PetStates.Init()
+function UI.Init(Pets, Sleep, Care, Remotes, PetState, Toys, Requirements, DetectionModule, PetStatesModule, HelpersModule, UIWindowModule, UIStatusModule, AilmentsPanelModule)
+    -- inject dependencies provided by loader
+    Detection = DetectionModule
+    PetStates = PetStatesModule
+    Helpers = HelpersModule
+    UIWindow = UIWindowModule
+    UIStatus = UIStatusModule
+    AilmentsPanel = AilmentsPanelModule
+
+    PetState = PetState or (PetStates and PetStates.Init and PetStates.Init())
 
     local player = game:GetService("Players").LocalPlayer
     local HoldBaby = Remotes.HoldBaby
